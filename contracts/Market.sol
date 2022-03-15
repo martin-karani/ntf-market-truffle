@@ -1,8 +1,9 @@
 //SPDX-license-Identifier - MIT
-pragma solidity ^0.8.9;
+pragma solidity >=0.4.22 <0.9.0;
+
 import "./IERC721.sol";
 
-contract Market{
+contract Market {
     enum ListingStatus{
         Active,
         Sold,
@@ -26,12 +27,20 @@ contract Market{
         uint listingId,
         address buyer,
         address token,
-        address tokenId,
+        uint tokenId,
         uint price
 
     );
+    event Cancel(
+        uint listingId,
+        address seller
+    );
     uint private _listingId = 0;
     mapping(uint=>Listing) private _listings;
+
+    function getListing(uint listingId) public view returns(Listing memory ){
+        return _listings[listingId];
+    }
 
     function listToken(address token,uint tokenId, uint price) public {
         IERC721(token).transferFrom(msg.sender,address(this),tokenId);
@@ -55,17 +64,20 @@ contract Market{
         require(listing.status == ListingStatus.Active,"Listing is not active");
         require(msg.value >= listing.price,"Insufficient Payment");
 
-        IERC721(token).transferFrom(address(this),msg.sender,tokenId);
-        payable(listing.sender).transfer(listing.price);
+        IERC721(listing.token).transferFrom(address(this),msg.sender,listing.tokenId);
+        payable(listing.seller).transfer(listing.price);
 
         emit Sale(listingId, msg.sender, listing.token, listing.tokenId, listing.price);
     }
+
     function cancel(uint listingId) public{
         Listing storage listing =_listings[listingId];
 
         require(msg.sender == listing.seller,"Only Seller can cancel listing");
         require(listing.status == ListingStatus.Active,"Listing is not active");
         listing.status = ListingStatus.Cancelled;
+
+        emit Cancel(listingId, msg.sender);
 
     }
 }
